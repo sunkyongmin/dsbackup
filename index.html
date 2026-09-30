@@ -122,6 +122,13 @@ button.duty.empty,button.memo .add{visibility:hidden}
 <button class="act" id="clear" type="button">이 달 비우기</button>
 <span class="hint">인쇄 창에서 용지 A4, 방향 가로, 여백 없음, 배경 그래픽 켜기를 선택하세요.</span>
 </div>
+<div class="row" style="margin-top:4px">
+<button class="act" id="exp" type="button">파일로 저장</button>
+<button class="act" id="impBtn" type="button">파일 불러오기</button>
+<input id="imp" type="file" accept=".json,application/json" hidden>
+<span class="hint" id="saveState" role="status"></span>
+</div>
+<p class="hint" style="margin:0">입력하는 즉시 이 브라우저에 자동 저장되어, 창을 닫았다 다시 열어도 이어서 작업할 수 있습니다. 다른 PC로 옮기거나 백업하려면 "파일로 저장"을 쓰세요.</p>
 </div>
 </div>
 
@@ -164,7 +171,9 @@ var DEF={year:NOW.getFullYear(),month:NOW.getMonth()+1,note:'',
 var S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!S.codes||!S.months)S=JSON.parse(JSON.stringify(DEF));
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function stamp(t){var st=document.getElementById('saveState');if(st)st.textContent=t}
+function hm(){var d=new Date();return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2)}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));stamp('자동 저장됨 '+hm())}catch(e){stamp('이 브라우저에는 자동 저장이 되지 않습니다. "파일로 저장"을 사용하세요.')}}
 function $(id){return document.getElementById(id)}
 function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function nd(){return new Date(S.year,S.month,0).getDate()}
@@ -287,7 +296,8 @@ function applySeq(g){
  if(toks.length!==n)$('msg').textContent=g+': '+toks.length+'개를 입력했습니다. 이 달은 '+n+'일입니다.';
  else{var bad=m[g].filter(function(c){return c&&!find(c)});if(bad.length)$('msg').textContent='명단에 없는 코드: '+bad.filter(function(v,i,a){return a.indexOf(v)===i}).join(', ')}
 }
-$('year').value=S.year;$('month').value=S.month;$('note').textContent=S.note||'';
+function initUI(){$('year').value=S.year;$('month').value=S.month;$('note').textContent=S.note||''}
+initUI();
 function syncMonth(){$('hol').value=holStr();$('mmemo').value=cur().mm||'';renderAll()}
 $('year').addEventListener('change',function(){var v=+this.value;if(v>=2020&&v<=2100){S.year=v;save();syncMonth()}});
 $('month').addEventListener('change',function(){var v=+this.value;if(v>=1&&v<=12){S.month=v;save();syncMonth()}});
@@ -332,7 +342,27 @@ $('grid').addEventListener('click',function(e){
  if(e.detail!==0)return;
  var t=e.target.closest?e.target.closest('button[data-act]'):null;if(t)act(t);
 });
+$('exp').addEventListener('click',function(){
+ var blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=u;a.download='당직표_'+S.year+'-'+('0'+S.month).slice(-2)+'.json';document.body.appendChild(a);a.click();a.remove();
+ setTimeout(function(){URL.revokeObjectURL(u)},1000);stamp('파일로 저장함 '+hm());
+});
+$('impBtn').addEventListener('click',function(){$('imp').click()});
+$('imp').addEventListener('change',function(){
+ var f=this.files&&this.files[0],inp=this;if(!f)return;
+ var rd=new FileReader();
+ rd.onload=function(){
+  try{var d=JSON.parse(rd.result);
+   if(!d||typeof d!=='object'||!d.codes||!d.months||!(d.year>=2020&&d.year<=2100)||!(d.month>=1&&d.month<=12))throw 0;
+   if(!confirm('불러온 파일로 현재 입력 내용을 모두 바꿉니다. 계속할까요?'))return;
+   S=d;save();initUI();renderStaff();syncMonth();stamp('파일을 불러왔습니다 '+hm());
+  }catch(e){alert('이 프로그램에서 저장한 파일이 아닙니다.')}
+  inp.value='';
+ };
+ rd.readAsText(f);
+});
 renderStaff();syncMonth();
+try{if(localStorage.getItem(KEY))stamp('이전에 저장한 작업을 불러왔습니다.')}catch(e){}
 })();
 </script>
 </body>
