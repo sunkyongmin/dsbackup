@@ -49,6 +49,7 @@ button.duty{all:unset;display:block;cursor:pointer;font-size:17px;font-weight:70
 .six .dn b{font-size:17px;line-height:18px}
 button.duty:hover,button.duty:focus-visible,button.memo:hover,button.memo:focus-visible{background:#e8eefc}
 button.duty.empty{color:#b8b8b8;font-weight:400}
+button.duty.unsure{background:#ffe066;outline:2px solid #e0a800}
 button.memo{all:unset;flex:1 1 0;min-width:0;word-break:keep-all;overflow-wrap:anywhere;cursor:pointer;font-size:13.5px;line-height:17px;border-radius:3px;align-self:flex-start;padding-top:3px}
 button.memo span{display:block}
 button.memo b{font-weight:700}
@@ -72,6 +73,7 @@ dialog .f{display:grid;grid-template-columns:92px 1fr;gap:8px 10px;align-items:c
 dialog .btns{display:flex;gap:8px;justify-content:flex-end}
 @page{size:A4 landscape;margin:0}
 @media print{
+button.duty.unsure{background:none;outline:none}
 body{background:#fff}.panel,dialog{display:none}.scroll{padding:0;overflow:visible}
 .sheet{width:1122px;height:793px;box-shadow:none;margin:0;overflow:hidden}
 button.duty.empty,button.memo .add{visibility:hidden}
@@ -105,7 +107,26 @@ button.duty.empty,button.memo .add{visibility:hidden}
 </div>
 
 <div class="box">
-<h2>3. 당직 입력</h2>
+<h2>3. 스캔으로 초안 만들기 (시험 기능)</h2>
+<p class="hint" style="margin-bottom:10px">내과·외과에서 받은 당직표를 스캔하거나 찍은 jpg를 올리면 당직 코드를 읽어 초안을 채웁니다. 파일은 이 브라우저 안에서만 처리되고 어디로도 전송되지 않습니다. 손글씨를 읽는 것이라 틀릴 수 있으니 반드시 원본과 대조하세요. 메모(진료·내시경·연차)는 읽지 않습니다.</p>
+<div class="row">
+<label for="scDept">과</label><select id="scDept"><option value="M">내과 (1M · 3M · 7M)</option><option value="G">외과 (I · II)</option></select>
+<label for="scFile">스캔 파일</label><input id="scFile" type="file" accept="image/*">
+<label for="scWeeks">달력 줄 수</label><input id="scWeeks" class="num" type="number" min="4" max="6">
+</div>
+<p class="msg" id="scHelp" style="color:#0b5d2a;font-weight:700"></p>
+<div id="scWrap" hidden><canvas id="scCv" style="max-width:100%;touch-action:none;cursor:crosshair;border:1px solid #9a9a9a"></canvas></div>
+<div class="row" style="margin-top:8px">
+<button class="act primary" id="scRun" type="button" disabled>읽어서 초안에 넣기</button>
+<button class="act" id="scReset" type="button">모서리 다시 찍기</button>
+<button class="act" id="scClear" type="button">노란 표시 지우기</button>
+</div>
+<div class="msg" id="scMsg" role="status"></div>
+<canvas id="scOut" hidden style="max-width:100%;border:1px solid #9a9a9a" aria-label="읽은 결과 미리보기"></canvas>
+</div>
+
+<div class="box">
+<h2>4. 당직 입력</h2>
 <p class="hint" style="margin-bottom:10px">1일부터 순서대로 숫자만 띄어 써서 넣거나(예: 1 3 3 1 …), 아래 달력에서 당직 코드를 눌러 바꿉니다. 누를 때마다 다음 코드로 넘어갑니다.</p>
 <div class="row"><label for="seqOS"><span class="tag" style="color:var(--OS)">OS</span></label><input id="seqOS" class="seq" type="text"></div>
 <div class="row"><label for="seqG"><span class="tag" style="color:var(--G)">G</span></label><input id="seqG" class="seq" type="text"></div>
@@ -114,7 +135,7 @@ button.duty.empty,button.memo .add{visibility:hidden}
 </div>
 
 <div class="box">
-<h2>4. 메모</h2>
+<h2>5. 메모</h2>
 <p class="hint" style="margin-bottom:10px"><b>날짜별 메모:</b> 아래 달력에서 각 칸의 "＋ 메모"(또는 이미 적힌 메모)를 누르면 그 날의 진료(토요일 오전 외래)·내시경·휴진·연차·기타를 적을 수 있습니다.</p>
 <label for="mmemo">월간 메모 (연차 목록 등. 적은 줄 그대로 달력의 빈 칸이나 아래쪽에 인쇄되고, 길면 글자가 자동으로 작아집니다)</label>
 <textarea id="mmemo" style="margin-top:6px"></textarea>
@@ -268,6 +289,7 @@ function renderSheet(){
    var code=m[g.k][d-1];
    var bt=el('button','duty'+(code?'':' empty'),code||g.k+'–');bt.type='button';bt.dataset.act='duty';bt.dataset.g=g.k;bt.dataset.d=d;
    if(code)bt.style.color='var(--'+g.k+')';
+   if(UNSURE[ukey(g.k,d)])bt.classList.add('unsure');
    bt.setAttribute('aria-label',S.month+'월 '+d+'일 '+g.label+' 당직: '+(code||'미입력'));L.appendChild(bt)});
   c.appendChild(L);c.appendChild(memoNode(d,isHol?hol[d]:''));grid.appendChild(c)}
  blanks(grid,trail,legendAt==='trail',false);
@@ -300,7 +322,7 @@ function applySeq(g){
 }
 function initUI(){$('year').value=S.year;$('month').value=S.month;$('note').textContent=S.note||''}
 initUI();
-function syncMonth(){$('hol').value=holStr();$('mmemo').value=cur().mm||'';renderAll()}
+function syncMonth(){var sw=document.getElementById('scWeeks');if(sw)sw.value=Math.ceil((new Date(S.year,S.month-1,1).getDay()+nd())/7);$('hol').value=holStr();$('mmemo').value=cur().mm||'';renderAll()}
 $('year').addEventListener('change',function(){var v=+this.value;if(v>=2020&&v<=2100){S.year=v;save();syncMonth()}});
 $('month').addEventListener('change',function(){var v=+this.value;if(v>=1&&v<=12){S.month=v;save();syncMonth()}});
 $('hol').addEventListener('change',function(){var m=cur(),v=this.value.trim();if(v){m.hol=v;m.holEdited=true}else{m.hol='';m.holEdited=false;this.value=autoHol()}save();renderSheet()});
@@ -330,6 +352,7 @@ $('mDel').addEventListener('click',function(){delete cur().memo[editDay];save();
 $('mCancel').addEventListener('click',closeMemo);
 
 function cycle(g,d){
+ delete UNSURE[ukey(g,d)];
  var m=cur(),opts=staffOf(g).concat(['']);
  m[g][d-1]=opts[(opts.indexOf(m[g][d-1])+1)%opts.length];save();renderAll();
  var again=document.querySelector('button.duty[data-g="'+g+'"][data-d="'+d+'"]');if(again)again.focus();
@@ -363,6 +386,188 @@ $('imp').addEventListener('change',function(){
  };
  rd.readAsText(f);
 });
+/* ===== 스캔 읽기 (브라우저 안에서만 처리) ===== */
+var SCW=360,SCH=300,SCX=60;
+var SC={src:null,gray:null,w:0,h:0,pts:[],drag:-1,disp:1};
+var UNSURE={};
+function ukey(g,d){return S.year+'-'+S.month+'-'+g+'-'+d}
+function scWeeks(){var v=+$('scWeeks').value;return (v>=4&&v<=6)?v:Math.ceil((new Date(S.year,S.month-1,1).getDay()+nd())/7)}
+function solveH(P,weeks){
+ var D=[[0,0],[7,0],[7,weeks],[0,weeks]],A=[],i,j,k;
+ for(i=0;i<4;i++){var u=D[i][0],v=D[i][1],x=P[i][0],y=P[i][1];
+  A.push([u,v,1,0,0,0,-u*x,-v*x,x]);A.push([0,0,0,u,v,1,-u*y,-v*y,y])}
+ for(i=0;i<8;i++){var p=i;for(j=i+1;j<8;j++)if(Math.abs(A[j][i])>Math.abs(A[p][i]))p=j;
+  var t=A[i];A[i]=A[p];A[p]=t;if(Math.abs(A[i][i])<1e-12)return null;
+  for(j=0;j<8;j++)if(j!==i){var f=A[j][i]/A[i][i];for(k=i;k<9;k++)A[j][k]-=f*A[i][k]}}
+ var h=[];for(i=0;i<8;i++)h.push(A[i][8]/A[i][i]);return h;
+}
+function mapH(h,u,v){var w=h[6]*u+h[7]*v+1;return [(h[0]*u+h[1]*v+h[2])/w,(h[3]*u+h[4]*v+h[5])/w]}
+function scWarp(h,weeks){
+ var W=7*SCW,H=weeks*SCH+SCX,out=new Float32Array(W*H),g=SC.gray,sw=SC.w,sh=SC.h,X,Y;
+ for(Y=0;Y<H;Y++){var v=Y/SCH;for(X=0;X<W;X++){var u=X/SCW,w=h[6]*u+h[7]*v+1,
+   x=(h[0]*u+h[1]*v+h[2])/w,y=(h[3]*u+h[4]*v+h[5])/w,val=255;
+  if(x>=0&&y>=0&&x<sw-1&&y<sh-1){var x0=x|0,y0=y|0,fx=x-x0,fy=y-y0,i=y0*sw+x0;
+   val=(g[i]*(1-fx)+g[i+1]*fx)*(1-fy)+(g[i+sw]*(1-fx)+g[i+sw+1]*fx)*fy}
+  out[Y*W+X]=val}}
+ return {g:out,w:W,h:H};
+}
+function scInk(im){
+ var W=im.w,H=im.h,g=im.g,q=4,qw=Math.ceil(W/q),qh=Math.ceil(H/q),a=new Float32Array(qw*qh),b=new Float32Array(qw*qh),x,y,i,k;
+ for(y=0;y<qh;y++)for(x=0;x<qw;x++){var m=0;for(var yy=y*q;yy<Math.min(H,y*q+q);yy++)for(var xx=x*q;xx<Math.min(W,x*q+q);xx++){var t=g[yy*W+xx];if(t>m)m=t}a[y*qw+x]=m}
+ var R=4;
+ for(y=0;y<qh;y++)for(x=0;x<qw;x++){m=0;for(k=Math.max(0,x-R);k<=Math.min(qw-1,x+R);k++){t=a[y*qw+k];if(t>m)m=t}b[y*qw+x]=m}
+ for(y=0;y<qh;y++)for(x=0;x<qw;x++){m=0;for(k=Math.max(0,y-R);k<=Math.min(qh-1,y+R);k++){t=b[k*qw+x];if(t>m)m=t}a[y*qw+x]=m}
+ var B=7;
+ for(y=0;y<qh;y++)for(x=0;x<qw;x++){var s=0,n=0;for(k=Math.max(0,x-B);k<=Math.min(qw-1,x+B);k++){s+=a[y*qw+k];n++}b[y*qw+x]=s/n}
+ for(y=0;y<qh;y++)for(x=0;x<qw;x++){s=0;n=0;for(k=Math.max(0,y-B);k<=Math.min(qh-1,y+B);k++){s+=b[k*qw+x];n++}a[y*qw+x]=s/n}
+ var ink=new Uint8Array(W*H);
+ for(y=0;y<H;y++){var qy=(y/q|0)*qw;for(x=0;x<W;x++){i=y*W+x;ink[i]=(a[qy+(x/q|0)]-g[i]>55)?1:0}}
+ return ink;
+}
+function scRegion(ink,W,H,x0,y0,x1,y1){
+ x0=Math.max(0,x0|0);y0=Math.max(0,y0|0);x1=Math.min(W,x1|0);y1=Math.min(H,y1|0);
+ var w=x1-x0,h=y1-y0,m=new Uint8Array(w*h);
+ for(var y=0;y<h;y++)for(var x=0;x<w;x++)m[y*w+x]=ink[(y0+y)*W+x0+x];
+ return {m:m,w:w,h:h};
+}
+function scRuns(get,n){var r=0,p=0;for(var i=0;i<n;i++){var v=get(i);if(v&&!p)r++;p=v}return r}
+function scPick(r,gapk){
+ var w=r.w,h=r.h,m=r.m,lab=new Int32Array(w*h),comps=[],st=[],x,y,i;
+ for(i=0;i<w*h;i++){if(!m[i]||lab[i])continue;
+  var id=comps.length+1,c={x0:w,y0:h,x1:0,y1:0,a:0,id:id};lab[i]=id;st.push(i);
+  while(st.length){var p=st.pop(),px=p%w,py=(p/w)|0;c.a++;
+   if(px<c.x0)c.x0=px;if(px>c.x1)c.x1=px;if(py<c.y0)c.y0=py;if(py>c.y1)c.y1=py;
+   for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++){var nx=px+dx,ny=py+dy;
+    if(nx<0||ny<0||nx>=w||ny>=h)continue;var q=ny*w+nx;if(m[q]&&!lab[q]){lab[q]=id;st.push(q)}}}
+  comps.push(c)}
+ var ok=comps.filter(function(c){var cw=c.x1-c.x0+1,ch=c.y1-c.y0+1;
+  return c.a>=40&&ch>=12&&!(ch>8*cw&&ch>h*0.45)&&!(cw>8*ch)});
+ if(!ok.length)return null;
+ var big=ok[0];ok.forEach(function(c){if((c.y1-c.y0+1)*c.a>(big.y1-big.y0+1)*big.a)big=c});
+ var bh=big.y1-big.y0+1,keep={};
+ ok.forEach(function(c){var ch=c.y1-c.y0+1,ov=Math.min(c.y1,big.y1)-Math.max(c.y0,big.y0)+1;
+  if(c===big||(ch>=0.55*bh&&ov>=0.6*Math.min(ch,bh)&&c.x1>=big.x0-gapk*bh&&c.x0<=big.x1+gapk*bh))keep[c.id]=1});
+ var X0=w,Y0=h,X1=0,Y1=0;
+ ok.forEach(function(c){if(keep[c.id]){if(c.x0<X0)X0=c.x0;if(c.y0<Y0)Y0=c.y0;if(c.x1>X1)X1=c.x1;if(c.y1>Y1)Y1=c.y1}});
+ var sw=X1-X0+1,sh=Y1-Y0+1,s=new Uint8Array(sw*sh);
+ for(y=0;y<sh;y++)for(x=0;x<sw;x++)s[y*sw+x]=keep[lab[(Y0+y)*w+X0+x]]?1:0;
+ return {m:s,w:sw,h:sh};
+}
+function scReadM(ink,W,H,cx,cy){
+ var p=scPick(scRegion(ink,W,H,cx+SCW*0.12,cy+SCH*0.5,cx+SCW*0.97,cy+SCH*1.12),1.0);
+ if(!p)return {v:'',u:true};
+ var w=p.w,h=p.h,m=p.m,col=new Int32Array(w),x,y,cut=-1;
+ for(x=0;x<w;x++)for(y=0;y<h;y++)col[x]+=m[y*w+x];
+ for(x=Math.max(2,(w*0.08)|0);x<((w*0.6)|0);x++)if(!col[x]){cut=x;break}
+ if(cut<0){var best=1e9;for(x=(w*0.2)|0;x<((w*0.5)|0);x++)if(col[x]<best){best=col[x];cut=x}}
+ if(cut<1)return {v:'',u:true};
+ var x0=cut,x1=-1,y0=h,y1=-1;
+ for(y=0;y<h;y++)for(x=0;x<cut;x++)if(m[y*w+x]){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
+ if(x1<0)return {v:'',u:true};
+ var ww=x1-x0+1,hh=y1-y0+1,asp=ww/hh,a=(ww*0.1)|0,b=Math.max(a+1,(ww*0.65)|0),n2=0;
+ for(x=a;x<b;x++){if(scRuns(function(i){return m[(y0+i)*w+x0+x]},hh)>=2)n2++}
+ var f2=n2/(b-a),v=asp<0.36?'1':(f2>=0.35?'3':'7');
+ var u=(asp>0.3&&asp<0.42)||(asp>=0.36&&f2>0.15&&f2<0.6)||(w/h<0.7)||(w/h>2.6);
+ return {v:v,u:u};
+}
+function scReadG(ink,W,H,cx,cy){
+ var p=scPick(scRegion(ink,W,H,cx+SCW*0.04,cy+SCH*0.08,cx+SCW*0.96,cy+SCH*0.97),0.6);
+ if(!p)return {v:'',u:true};
+ var w=p.w,h=p.h,m=p.m,a=(h*0.3)|0,b=Math.max(a+1,(h*0.7)|0),s=0,y;
+ for(y=a;y<b;y++)s+=scRuns(function(i){return m[y*w+i]},w);
+ var r=s/(b-a),v=r>=2.5?'3':(r>=1.5?'2':'1');
+ return {v:v,u:(r>1.2&&r<1.8)||(r>2.3&&r<2.7)||r>3.3||r<0.8};
+}
+function scRead(dept){
+ var weeks=scWeeks(),h=solveH(SC.pts,weeks);if(!h)return null;
+ var im=scWarp(h,weeks),ink=scInk(im),lead=new Date(S.year,S.month-1,1).getDay(),n=nd(),res=[];
+ for(var d=1;d<=n;d++){var i=lead+d-1,cx=(i%7)*SCW,cy=((i/7)|0)*SCH;
+  if(cy>=weeks*SCH){res.push({v:'',u:true});continue}
+  res.push(dept==='M'?scReadM(ink,im.w,im.h,cx,cy):scReadG(ink,im.w,im.h,cx,cy))}
+ return {res:res,im:im,weeks:weeks,lead:lead};
+}
+function scDraw(){
+ var cv=$('scCv'),ctx=cv.getContext('2d');if(!SC.src)return;
+ ctx.drawImage(SC.src,0,0,cv.width,cv.height);
+ var k=1/SC.disp,P=SC.pts.map(function(p){return [p[0]*k,p[1]*k]});
+ if(P.length===4){var weeks=scWeeks(),h=solveH(SC.pts,weeks);
+  if(h){ctx.strokeStyle='rgba(0,160,70,.9)';ctx.lineWidth=1.5;ctx.beginPath();var i,a,b;
+   for(i=0;i<=7;i++){a=mapH(h,i,0);b=mapH(h,i,weeks);ctx.moveTo(a[0]*k,a[1]*k);ctx.lineTo(b[0]*k,b[1]*k)}
+   for(i=0;i<=weeks;i++){a=mapH(h,0,i);b=mapH(h,7,i);ctx.moveTo(a[0]*k,a[1]*k);ctx.lineTo(b[0]*k,b[1]*k)}
+   ctx.stroke();
+   var lead=new Date(S.year,S.month-1,1).getDay(),n=nd();ctx.font='bold 13px sans-serif';ctx.fillStyle='rgba(0,120,50,.95)';
+   for(var d=1;d<=n;d++){i=lead+d-1;a=mapH(h,(i%7)+0.82,((i/7)|0)+0.2);ctx.fillText(d,a[0]*k-6,a[1]*k)}}}
+ ctx.font='bold 14px sans-serif';
+ P.forEach(function(p,i){ctx.beginPath();ctx.arc(p[0],p[1],9,0,6.3);ctx.fillStyle='rgba(220,40,40,.85)';ctx.fill();
+  ctx.fillStyle='#fff';ctx.fillText(i+1,p[0]-4,p[1]+5)});
+}
+var SCSTEP=['① 첫 주 일요일 칸의 왼쪽 위 모서리를 누르세요.','② 첫 주 토요일 칸의 오른쪽 위 모서리를 누르세요.','③ 마지막 주 토요일 칸의 오른쪽 아래 모서리를 누르세요.','④ 마지막 주 일요일 칸의 왼쪽 아래 모서리를 누르세요.'];
+function scHelp(){
+ var n=SC.pts.length;
+ $('scHelp').textContent=!SC.src?'':(n<4?SCSTEP[n]:'초록색 선이 달력 칸과 맞고 날짜 숫자가 제 칸에 들어갔는지 확인하세요. 빨간 점을 끌어서 고칠 수 있습니다. 맞으면 "읽어서 초안에 넣기"를 누르세요.');
+ $('scRun').disabled=n<4;
+}
+function scLoad(file){
+ var url=URL.createObjectURL(file),img=new Image();
+ img.onload=function(){
+  var sc=Math.min(1,2400/img.width),w=Math.round(img.width*sc),h=Math.round(img.height*sc),c=document.createElement('canvas');
+  c.width=w;c.height=h;var x=c.getContext('2d');x.drawImage(img,0,0,w,h);URL.revokeObjectURL(url);
+  var d=x.getImageData(0,0,w,h).data,g=new Float32Array(w*h);
+  for(var i=0;i<w*h;i++)g[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
+  SC.src=c;SC.gray=g;SC.w=w;SC.h=h;SC.pts=[];
+  $('scWrap').hidden=false;$('scOut').hidden=true;$('scMsg').textContent='';
+  var cv=$('scCv'),dw=Math.min(w,Math.max(320,$('scWrap').clientWidth||900));
+  cv.width=dw;cv.height=Math.round(h*dw/w);SC.disp=w/dw;scDraw();scHelp();
+ };
+ img.onerror=function(){$('scMsg').textContent='이미지를 열 수 없습니다. jpg 또는 png 파일을 올려 주세요.'};
+ img.src=url;
+}
+function scPos(e){var r=$('scCv').getBoundingClientRect(),k=$('scCv').width/r.width;return [(e.clientX-r.left)*k*SC.disp,(e.clientY-r.top)*k*SC.disp]}
+function scInit(){
+ var cv=$('scCv');
+ $('scWeeks').value=Math.ceil((new Date(S.year,S.month-1,1).getDay()+nd())/7);
+ $('scFile').addEventListener('change',function(){if(this.files&&this.files[0])scLoad(this.files[0])});
+ $('scWeeks').addEventListener('change',function(){scDraw()});
+ cv.addEventListener('pointerdown',function(e){
+  if(!SC.src)return;var p=scPos(e);
+  if(SC.pts.length<4){SC.pts.push(p);SC.drag=SC.pts.length-1}
+  else{var best=-1,bd=1e9;SC.pts.forEach(function(q,i){var d=Math.hypot(q[0]-p[0],q[1]-p[1]);if(d<bd){bd=d;best=i}});
+   SC.drag=bd<40*SC.disp?best:-1}
+  if(SC.drag>=0&&cv.setPointerCapture)try{cv.setPointerCapture(e.pointerId)}catch(x){}
+  scDraw();scHelp();e.preventDefault();
+ });
+ cv.addEventListener('pointermove',function(e){if(SC.drag<0)return;SC.pts[SC.drag]=scPos(e);scDraw()});
+ cv.addEventListener('pointerup',function(){SC.drag=-1});
+ cv.addEventListener('pointercancel',function(){SC.drag=-1});
+ $('scReset').addEventListener('click',function(){SC.pts=[];scDraw();scHelp();$('scOut').hidden=true});
+ $('scClear').addEventListener('click',function(){UNSURE={};renderSheet();$('scMsg').textContent=''});
+ $('scRun').addEventListener('click',function(){
+  var dept=$('scDept').value,m=cur();
+  if(m[dept].some(function(c){return c})&&!confirm((dept==='M'?'내과':'외과')+' 당직이 이미 입력되어 있습니다. 읽은 결과로 바꿀까요?'))return;
+  $('scMsg').textContent='읽는 중입니다…';$('scRun').disabled=true;
+  setTimeout(function(){
+   var out=scRead(dept);$('scRun').disabled=false;
+   if(!out){$('scMsg').textContent='모서리 위치를 다시 확인해 주세요.';return}
+   var bad=[],known=staffOf(dept);
+   out.res.forEach(function(r,i){var d=i+1,code=r.v?dept+r.v:'';
+    m[dept][i]=code;var u=r.u||!code||known.indexOf(code)<0;
+    if(u){UNSURE[ukey(dept,d)]=1;bad.push(d)}else delete UNSURE[ukey(dept,d)]});
+   save();renderAll();scShow(out,dept);
+   $('scMsg').textContent=(dept==='M'?'내과':'외과')+' '+out.res.length+'일을 읽어 초안에 넣었습니다. '+(bad.length?'확인이 필요한 날: '+bad.join(', ')+'일 (달력에 노란색으로 표시).':'불확실한 칸은 없지만, 원본과 한 번 대조해 주세요.');
+  },30);
+ });
+}
+function scShow(out,dept){
+ var im=out.im,k=3,w=(im.w/k)|0,h=((out.weeks*SCH)/k)|0,cv=$('scOut'),ctx=cv.getContext('2d');
+ cv.width=w;cv.height=h;cv.hidden=false;
+ var id=ctx.createImageData(w,h),x,y;
+ for(y=0;y<h;y++)for(x=0;x<w;x++){var v=im.g[(y*k)*im.w+x*k],i=(y*w+x)*4;id.data[i]=id.data[i+1]=id.data[i+2]=v;id.data[i+3]=255}
+ ctx.putImageData(id,0,0);ctx.font='bold 17px sans-serif';
+ out.res.forEach(function(r,i){var c=out.lead+i,cx=(c%7)*SCW/k,cy=((c/7)|0)*SCH/k,t=r.v?dept+r.v:'?';
+  ctx.fillStyle=r.u?'rgba(255,214,0,.9)':'rgba(255,255,255,.85)';ctx.fillRect(cx+SCW/k-44,cy+3,41,22);
+  ctx.fillStyle=r.u?'#8a2a0a':'#0b5d2a';ctx.fillText(t,cx+SCW/k-41,cy+20)});
+}
+scInit();
 renderStaff();syncMonth();
 try{if(localStorage.getItem(KEY))stamp('이전에 저장한 작업을 불러왔습니다.')}catch(e){}
 })();
