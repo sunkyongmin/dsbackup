@@ -60,9 +60,8 @@ button.memo .add{color:#9a9a9a}
 .legend .g{display:flex;flex-direction:column;font-size:13px;line-height:18px}
 .legend .t{font-size:11px;font-weight:700;color:#555;letter-spacing:1px;line-height:14px}
 .legend .c{display:inline-block;width:34px;font-weight:700}
-.legend .mm{flex:1 1 300px;columns:2;column-gap:20px;font-size:15px;line-height:21px;color:#1a1a1a}
-.six .legend .g{font-size:12px;line-height:15px}.six .legend .mm{font-size:13px;line-height:17px}
-.six button.memo{font-size:12px;line-height:15px}
+.legend .mm{flex:1 1 auto;min-width:0;width:100%;white-space:pre;overflow:hidden;font-size:15px;line-height:1.4;color:#1a1a1a}
+.six .legend .g{font-size:12px;line-height:15px}.six button.memo{font-size:12px;line-height:15px}
 .note{font-size:12px;line-height:1.5;color:#444;min-height:18px;outline:none}
 .note:focus{background:#fffbe6}
 dialog{border:1px solid #777;border-radius:10px;padding:18px 20px;width:min(440px,92vw);font-family:inherit;color:var(--ink)}
@@ -116,7 +115,7 @@ button.duty.empty,button.memo .add{visibility:hidden}
 <div class="box">
 <h2>4. 메모</h2>
 <p class="hint" style="margin-bottom:10px"><b>날짜별 메모:</b> 아래 달력에서 각 칸의 "＋ 메모"(또는 이미 적힌 메모)를 누르면 그 날의 진료(토요일 오전 외래)·내시경·휴진·연차·기타를 적을 수 있습니다.</p>
-<label for="mmemo">월간 메모 (연차 목록 등, 한 줄에 하나씩. 달력의 빈 칸이나 아래쪽에 인쇄됩니다)</label>
+<label for="mmemo">월간 메모 (연차 목록 등. 적은 줄 그대로 달력의 빈 칸이나 아래쪽에 인쇄되고, 길면 글자가 자동으로 작아집니다)</label>
 <textarea id="mmemo" style="margin-top:6px"></textarea>
 <div class="row" style="margin-top:10px">
 <button class="act primary" id="print" type="button">인쇄 / PDF 저장</button>
@@ -229,7 +228,7 @@ function memoNode(d){
  return bt;
 }
 function legendNode(span){
- var lines=(cur().mm||'').split('\n').map(function(x){return x.trim()}).filter(Boolean);
+ var lines=(cur().mm||'').split('\n').map(function(x){return x.replace(/\s+$/,'')}).filter(function(x){return x.trim()});
  if(!lines.length)return null;
  var box=el('div','legend'+(span?' span':''));
  var mm=el('div','mm');lines.forEach(function(x){mm.appendChild(el('div','',x))});box.appendChild(mm);
@@ -262,6 +261,7 @@ function renderSheet(){
   c.appendChild(L);c.appendChild(memoNode(d));grid.appendChild(c)}
  blanks(grid,trail,legendAt==='trail',false);
  if(legendAt==='foot'){var fb=legendNode(false);if(fb)foot.appendChild(fb)}
+ fitMM();
 }
 function renderSeq(){
  var m=cur(),blanks=0;
@@ -271,6 +271,12 @@ function renderSeq(){
  $('msg').textContent=blanks?('당직 미입력 '+blanks+'칸이 있습니다.'):'';
 }
 function renderStaff(){GROUPS.forEach(function(g){$('c'+g.k).value=staffOf(g.k).join(', ')})}
+function fitMM(){
+ var boxes=document.querySelectorAll('#sheet .legend');
+ for(var i=0;i<boxes.length;i++){var box=boxes[i],mm=box.querySelector('.mm');if(!mm)continue;
+  var fs=15;mm.style.fontSize=fs+'px';
+  while(fs>7&&(mm.scrollWidth>mm.clientWidth||box.scrollHeight>box.clientHeight)){fs-=0.5;mm.style.fontSize=fs+'px'}}
+}
 function renderAll(){renderSheet();renderSeq()}
 function applySeq(g){
  var m=cur(),toks=$('seq'+g).value.trim().split(/[\s,]+/).filter(Boolean),n=nd();
