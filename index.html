@@ -118,9 +118,13 @@ button.duty.empty,button.memo .add{visibility:hidden}
 <div id="scWrap" hidden><canvas id="scCv" style="max-width:100%;touch-action:none;cursor:crosshair;border:1px solid #9a9a9a"></canvas></div>
 <div class="row" style="margin-top:8px">
 <button class="act primary" id="scRun" type="button" disabled>읽어서 초안에 넣기</button>
-<button class="act" id="scReset" type="button">모서리 다시 찍기</button>
-<button class="act" id="scClear" type="button">노란 표시 지우기</button>
+<button class="act" id="scReset" type="button">달력 영역 다시 지정</button>
+<button class="act" id="scClear" type="button">확인 표시 지우기</button>
 </div>
+<ul class="hint" style="margin:0 0 6px;padding-left:18px">
+<li><b>달력 영역 다시 지정:</b> 찍어 둔 네 모서리를 지우고 ①번부터 다시 누릅니다. 조금만 어긋났으면 다시 지정하지 않고 빨간 점을 끌어서 옮겨도 됩니다.</li>
+<li><b>확인 표시 지우기:</b> 읽기에 자신 없는 칸에 칠해진 노란색을 한꺼번에 없앱니다. 당직 내용은 바뀌지 않습니다. 노란 칸을 눌러 고치면 그 칸의 표시는 저절로 없어지고, 노란색은 인쇄에 나오지 않습니다.</li>
+</ul>
 <div class="msg" id="scMsg" role="status"></div>
 <canvas id="scOut" hidden style="max-width:100%;border:1px solid #9a9a9a" aria-label="읽은 결과 미리보기"></canvas>
 </div>
