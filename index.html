@@ -38,7 +38,7 @@ table.staff input{width:120px}table.staff input.code{width:64px}
 .wd,.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr)) minmax(0,1.45fr)}
 .wd div{text-align:center;font-size:14px;font-weight:700;padding:4px 0;background:var(--head);border:1px solid var(--line)}
 .grid{flex:1;min-height:0}
-.cell{border:1px solid var(--line);padding:5px 9px;display:flex;flex-wrap:wrap;align-content:flex-start;gap:1px 8px;background:#fff;min-height:0;overflow:hidden}
+.cell{border:1px solid var(--line);padding:5px 9px;display:flex;flex-wrap:nowrap;align-items:flex-start;gap:8px;background:#fff;min-height:0;overflow:hidden}
 .cell.off{background:var(--soft)}
 .L{flex:0 0 auto;display:flex;flex-direction:column;gap:1px}
 .dn{display:flex;align-items:baseline;gap:8px}
@@ -49,12 +49,13 @@ button.duty{all:unset;display:block;cursor:pointer;font-size:17px;font-weight:70
 .six .dn b{font-size:17px;line-height:18px}
 button.duty:hover,button.duty:focus-visible,button.memo:hover,button.memo:focus-visible{background:#e8eefc}
 button.duty.empty{color:#b8b8b8;font-weight:400}
-button.memo{all:unset;flex:1 1 72px;min-width:72px;cursor:pointer;font-size:13.5px;line-height:17px;border-radius:3px;align-self:flex-start;padding-top:3px}
+button.memo{all:unset;flex:1 1 0;min-width:0;word-break:keep-all;overflow-wrap:anywhere;cursor:pointer;font-size:13.5px;line-height:17px;border-radius:3px;align-self:flex-start;padding-top:3px}
 button.memo span{display:block}
 button.memo b{font-weight:700}
 button.memo .r{color:var(--red);font-weight:700}
 button.memo .e{color:#444}
 button.memo .add{color:#9a9a9a}
+button.memo .h{color:var(--red);font-size:11px}
 .legend{border:1px solid var(--line);background:#fff;padding:7px 14px;display:flex;flex-wrap:wrap;gap:5px 20px;align-content:flex-start;overflow:hidden}
 .legend.span{grid-column:span 4}
 .legend .g{display:flex;flex-direction:column;font-size:13px;line-height:18px}
@@ -223,8 +224,9 @@ function holidays(){
  return out;
 }
 function list(s){return (s||'').split(/[,，·\s]+/).filter(Boolean).join('·')}
-function memoNode(d){
+function memoNode(d,holName){
  var mo=cur().memo[d]||{},bt=el('button','memo');bt.type='button';bt.dataset.act='memo';bt.dataset.d=d;
+ if(holName)bt.appendChild(el('span','h',holName));
  var parts=[];
  function add(cls,bold,text){var s=el('span',cls);if(bold)s.appendChild(el('b','',bold+' '));s.appendChild(document.createTextNode(text));bt.appendChild(s);parts.push((bold?bold+' ':'')+text)}
  if(list(mo.clinic))add('', '진료',list(mo.clinic));
@@ -261,13 +263,13 @@ function renderSheet(){
   var wd=(lead+d-1)%7,isHol=hol[d]!=null;
   var c=el('div','cell'+((wd===0||wd===6||isHol)?' off':''));
   var L=el('div','L'),dn=el('div','dn');dn.appendChild(el('b',(wd===0||isHol)?'red':(wd===6?'blue':''),d));
-  if(isHol)dn.appendChild(el('span','',hol[d]));L.appendChild(dn);
+  L.appendChild(dn);
   GROUPS.forEach(function(g){
    var code=m[g.k][d-1];
    var bt=el('button','duty'+(code?'':' empty'),code||g.k+'–');bt.type='button';bt.dataset.act='duty';bt.dataset.g=g.k;bt.dataset.d=d;
    if(code)bt.style.color='var(--'+g.k+')';
    bt.setAttribute('aria-label',S.month+'월 '+d+'일 '+g.label+' 당직: '+(code||'미입력'));L.appendChild(bt)});
-  c.appendChild(L);c.appendChild(memoNode(d));grid.appendChild(c)}
+  c.appendChild(L);c.appendChild(memoNode(d,isHol?hol[d]:''));grid.appendChild(c)}
  blanks(grid,trail,legendAt==='trail',false);
  if(legendAt==='foot'){var fb=legendNode(false);if(fb)foot.appendChild(fb)}
  fitMM();
