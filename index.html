@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>배후진료 당직표 달력 만들기</title>
+<title>동신병원 배후진료 당직표 달력 만들기</title>
 <style>
 :root{--ink:#1a1a1a;--line:#8a8a8a;--soft:#f6f3ee;--head:#e9e4dc;--red:#b42318;--blue:#1f4e8c;--OS:#1f4e8c;--G:#9a3412;--M:#1d6b45}
 *{box-sizing:border-box}
@@ -81,19 +81,19 @@ button.duty.empty,button.memo .add{visibility:hidden}
 </head>
 <body>
 <div class="panel">
-<h1>배후진료 당직표 달력 만들기</h1>
+<h1>동신병원 배후진료 당직표 달력 만들기</h1>
 <p>연·월을 고르고 과별 당직 코드와 날짜별 메모(진료·내시경·휴진·연차)를 입력하면 아래에 A4 가로 달력이 만들어집니다.</p>
 
 <div class="box">
-<h2>1. 연·월, 제목</h2>
+<h2>1. 연·월, 공휴일</h2>
 <div class="row">
 <label for="year">연도</label><input id="year" class="num" type="number" min="2020" max="2100">
 <label for="month">월</label><input id="month" class="num" type="number" min="1" max="12">
-<label for="org">기관명</label><input id="org" class="wide" type="text">
 </div>
 <div class="row">
-<label for="hol">공휴일</label><input id="hol" class="wide" type="text" placeholder="예: 3=개천절, 5=대체공휴일, 9=한글날">
+<label for="hol">공휴일</label><input id="hol" class="wide" type="text" placeholder="이 달은 공휴일이 없습니다">
 </div>
+<p class="hint" style="margin:0">공휴일과 대체공휴일은 자동으로 들어갑니다. 임시공휴일·선거일은 "날짜=이름" 형식으로 직접 추가하세요. 칸을 모두 지우면 자동 입력으로 돌아갑니다.</p>
 </div>
 
 <div class="box">
@@ -128,7 +128,7 @@ button.duty.empty,button.memo .add{visibility:hidden}
 
 <div class="scroll">
 <div class="sheet" id="sheet">
-<div class="top"><h1 id="title"></h1><div id="orgOut"></div></div>
+<div class="top"><h1 id="title"></h1><div>동신병원 응급실</div></div>
 <div class="wd"><div class="red">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div class="blue">토</div></div>
 <div class="grid" id="grid"></div>
 <div id="footLegend"></div>
@@ -160,7 +160,7 @@ var GROUPS=[{k:'OS',label:'정형외과'},{k:'G',label:'외과'},{k:'M',label:'�
 var KEY='oncall-calendar-v3';
 function codes(g,str){return str.split(' ').map(function(n){return g+n})}
 var NOW=new Date();
-var DEF={year:NOW.getFullYear(),month:NOW.getMonth()+1,org:'',note:'',
+var DEF={year:NOW.getFullYear(),month:NOW.getMonth()+1,note:'',
  codes:{OS:['OS1','OS3'],G:['G1','G2'],M:['M1','M3','M7']},months:{}};
 var S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
@@ -178,8 +178,39 @@ function cur(){
 }
 function staffOf(g){return S.codes[g]||[]}
 function find(code){return GROUPS.some(function(g){return staffOf(g.k).indexOf(code)>=0})}
+var LUNAR={"2025":["01-29","05-05","10-06"],"2026":["02-17","05-24","09-25"],"2027":["02-07","05-13","09-15"],"2028":["01-27","05-02","10-03"],"2029":["02-13","05-20","09-22"],"2030":["02-03","05-09","09-12"],"2031":["01-23","05-28","10-01"],"2032":["02-11","05-16","09-19"],"2033":["01-31","05-06","09-08"],"2034":["02-19","05-25","09-27"],"2035":["02-08","05-15","09-16"],"2036":["01-28","05-03","10-04"],"2037":["02-15","05-22","09-24"],"2038":["02-04","05-11","09-13"],"2039":["01-24","04-30","10-02"],"2040":["02-12","05-18","09-21"]};
+function yearHolidays(y){
+ var map={},subs={};
+ function put(mo,d,name,g){var dt=new Date(y,mo-1,d),k=(dt.getMonth()+1)+'-'+dt.getDate();if(dt.getFullYear()!==y)return;(map[k]=map[k]||[]).push({name:name,g:g})}
+ put(1,1,'신정',0);put(3,1,'삼일절',2);if(y>=2026)put(5,1,'노동절',2);put(5,5,'어린이날',2);put(6,6,'현충일',0);
+ if(y>=2026)put(7,17,'제헌절',2);put(8,15,'광복절',2);put(10,3,'개천절',2);put(10,9,'한글날',2);put(12,25,'성탄절',2);
+ var l=LUNAR[y];
+ if(l){var a=l[0].split('-'),b=l[1].split('-'),c=l[2].split('-');
+  put(+a[0],+a[1]-1,'설 연휴',1);put(+a[0],+a[1],'설날',1);put(+a[0],+a[1]+1,'설 연휴',1);
+  put(+b[0],+b[1],'부처님오신날',2);
+  put(+c[0],+c[1]-1,'추석 연휴',1);put(+c[0],+c[1],'추석',1);put(+c[0],+c[1]+1,'추석 연휴',1)}
+ for(var t=new Date(y,0,1);t.getFullYear()===y;t.setDate(t.getDate()+1)){
+  var k=(t.getMonth()+1)+'-'+t.getDate(),hs=map[k];if(!hs)continue;
+  var wd=t.getDay(),need=false;
+  if(hs.length>1&&hs.some(function(h){return h.g>0}))need=true;
+  hs.forEach(function(h){if((h.g===1&&wd===0)||(h.g===2&&(wd===0||wd===6)))need=true});
+  if(!need)continue;
+  var n=new Date(t);
+  for(;;){n.setDate(n.getDate()+1);var nk=(n.getMonth()+1)+'-'+n.getDate();
+   if(n.getDay()!==0&&n.getDay()!==6&&!map[nk]&&!subs[nk]){subs[nk]=true;break}}
+ }
+ var out={};Object.keys(map).forEach(function(k){var h=map[k].filter(function(x){return x.g===1})[0]||map[k][0];out[k]=h.name});
+ Object.keys(subs).forEach(function(k){out[k]='대체공휴일'});
+ return out;
+}
+function autoHol(){
+ var all=yearHolidays(S.year),r=[];
+ for(var d=1;d<=nd();d++){var nm=all[S.month+'-'+d];if(nm)r.push(d+'='+nm)}
+ return r.join(', ');
+}
+function holStr(){var m=cur();return m.holEdited?(m.hol||''):autoHol()}
 function holidays(){
- var out={};(cur().hol||'').split(/[,，]/).forEach(function(p){
+ var out={};holStr().split(/[,，]/).forEach(function(p){
   var m=p.trim().match(/^(\d{1,2})\s*(?:[=:]\s*(.*))?$/);if(m)out[+m[1]]=(m[2]||'공휴일').trim()||'공휴일'});
  return out;
 }
@@ -213,7 +244,6 @@ function blanks(grid,n,withBox,boxFirst){
 function renderSheet(){
  var m=cur(),n=nd(),lead=new Date(S.year,S.month-1,1).getDay(),weeks=Math.ceil((lead+n)/7),trail=weeks*7-lead-n,hol=holidays();
  $('title').textContent=S.year+'년 '+S.month+'월 배후진료 당직표';
- $('orgOut').textContent=S.org||'';
  var grid=$('grid');grid.textContent='';grid.style.gridTemplateRows='repeat('+weeks+',minmax(0,1fr))';
  $('sheet').classList.toggle('six',weeks>5);
  var foot=$('footLegend');foot.textContent='';
@@ -251,19 +281,18 @@ function applySeq(g){
  if(toks.length!==n)$('msg').textContent=g+': '+toks.length+'개를 입력했습니다. 이 달은 '+n+'일입니다.';
  else{var bad=m[g].filter(function(c){return c&&!find(c)});if(bad.length)$('msg').textContent='명단에 없는 코드: '+bad.filter(function(v,i,a){return a.indexOf(v)===i}).join(', ')}
 }
-$('year').value=S.year;$('month').value=S.month;$('org').value=S.org||'';$('note').textContent=S.note||'';
-function syncMonth(){$('hol').value=cur().hol||'';$('mmemo').value=cur().mm||'';renderAll()}
+$('year').value=S.year;$('month').value=S.month;$('note').textContent=S.note||'';
+function syncMonth(){$('hol').value=holStr();$('mmemo').value=cur().mm||'';renderAll()}
 $('year').addEventListener('change',function(){var v=+this.value;if(v>=2020&&v<=2100){S.year=v;save();syncMonth()}});
 $('month').addEventListener('change',function(){var v=+this.value;if(v>=1&&v<=12){S.month=v;save();syncMonth()}});
-$('org').addEventListener('input',function(){S.org=this.value;save();$('orgOut').textContent=S.org});
-$('hol').addEventListener('change',function(){cur().hol=this.value;save();renderSheet()});
+$('hol').addEventListener('change',function(){var m=cur(),v=this.value.trim();if(v){m.hol=v;m.holEdited=true}else{m.hol='';m.holEdited=false;this.value=autoHol()}save();renderSheet()});
 $('mmemo').addEventListener('input',function(){cur().mm=this.value;save();renderSheet()});
 $('note').addEventListener('input',function(){S.note=this.textContent;save()});
 GROUPS.forEach(function(g){$('seq'+g.k).addEventListener('change',function(){applySeq(g.k)})});
 GROUPS.forEach(function(g){$('c'+g.k).addEventListener('change',function(){
  S.codes[g.k]=this.value.toUpperCase().split(/[,，\s]+/).filter(function(v,i,a){return v&&a.indexOf(v)===i});save();renderStaff();renderAll()})});
 $('print').addEventListener('click',function(){window.print()});
-$('clear').addEventListener('click',function(){if(confirm(S.year+'년 '+S.month+'월 당직과 메모를 모두 비울까요?')){var m=cur();GROUPS.forEach(function(g){m[g.k]=[]});m.memo={};m.mm='';save();syncMonth()}});
+$('clear').addEventListener('click',function(){if(confirm(S.year+'년 '+S.month+'월 당직과 메모를 모두 비울까요?')){var m=cur();GROUPS.forEach(function(g){m[g.k]=[]});m.memo={};m.mm='';m.hol='';m.holEdited=false;save();syncMonth()}});
 
 var FIELDS=[['mClinic','clinic'],['mEndo','endo'],['mOff','off'],['mLeave','leave'],['mEtc','etc']],editDay=0;
 function openMemo(d){
